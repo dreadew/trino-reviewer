@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package schema_review;
+
+// Сервис для анализа схемы БД
+service SchemaReviewService {
+  // Проведение ревью схемы БД
+  rpc ReviewSchema(ReviewSchemaRequest) returns (ReviewSchemaResponse);
+}
+
+// DDL утверждение
+message DDLStatement {
+  string statement = 1;
+}
+
+// SQL запрос
+message Query {
+  string query_id = 1;
+  string query = 2;
+  int32 runquantity = 3;
+  int32 executiontime = 4;
+}
+
+// Запрос на ревью схемы
+message ReviewSchemaRequest {
+  string url = 1;  // URL подключения к Trino
+  repeated DDLStatement ddl = 2;  // Список DDL утверждений
+  repeated Query queries = 3;  // Список запросов
+  optional string thread_id = 4;  // Опциональный ID треда
+}
+
+// Результат DDL операции
+message DDLResult {
+  string statement = 1;
+}
+
+// Результат миграции
+message MigrationResult {
+  string statement = 1;
+}
+
+// Результат запроса
+message QueryResult {
+  string query_id = 1;
+  string query = 2;
+}
+
+// Ответ на ревью схемы
+message ReviewSchemaResponse {
+  bool success = 1;  // Успешность операции
+  string message = 2;  // Сообщение о результате
+  repeated DDLResult ddl = 3;  // Рекомендуемые DDL операции
+  repeated MigrationResult migrations = 4;  // Миграции
+  repeated QueryResult queries = 5;  // Оптимизированные запросы
+  optional string error = 6;  // Ошибка, если есть
+  repeated string warnings = 7;  // Предупреждения
+}
