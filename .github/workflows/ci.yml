@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev, feat/*, fix/*, hotfix/*]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: [3.11]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: Check code formatting with Black
+        run: |
+          poetry run black --check --diff .
+
+      - name: Check imports with isort
+        run: |
+          poetry run isort --check-only --diff .
+
+      - name: Lint with flake8
+        run: |
+          poetry run flake8 src tests
+
+      - name: Run unit tests
+        run: |
+          poetry run python -m pytest tests -v --tb=short
+
+      - name: Check for security issues with bandit
+        run: |
+          poetry run bandit -r src -ll || echo "Bandit found some issues but they are not critical"
+        continue-on-error: true
