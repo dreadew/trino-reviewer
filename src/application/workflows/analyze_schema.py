@@ -14,6 +14,7 @@ from src.core.prompts.base import BASE_PROMPT_TEMPLATE
 from src.core.prompts.system import SYSTEM_REVIEWER_PROMPT
 from src.core.types.agent import AgentState
 from src.core.utils.json import safe_extract_json
+from src.application.tools.trino_tool import create_trino_tool
 
 
 class AnalyzeSchemaWorkflow(BaseWorkflow):
@@ -26,16 +27,61 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
 
     def _build_graph(self):
         graph = StateGraph(AgentState)
+        graph.add_node("validate_schema", self._validate_schema_node)
         graph.add_node("compose_prompt", self._compose_prompt_node)
         graph.add_node("call_llm", self._call_llm_node)
         graph.add_node("parse_response", self._parse_response_node)
 
-        graph.add_edge(START, "compose_prompt")
+        graph.add_edge(START, "validate_schema")
+        graph.add_edge("validate_schema", "compose_prompt")
         graph.add_edge("compose_prompt", "call_llm")
         graph.add_edge("call_llm", "parse_response")
         graph.add_edge("parse_response", END)
 
         return graph.compile(checkpointer=MemorySaver())
+
+    def _validate_schema_node(self, state: AgentState) -> AgentState:
+        """
+        Валидация схемы БД с помощью Trino tool.
+
+        :param state: Состояние агента
+        :return: Обновленное состояние с информацией о схеме
+        """
+        if not state.get("url"):
+            self.logger.warning("URL подключения не указан, пропускаем валидацию схемы")
+            state["schema_info"] = "URL подключения к БД не предоставлен"
+            return state
+
+        try:
+            trino_tool = create_trino_tool(state["url"])
+
+            schema_info = []
+
+            catalogs_result = trino_tool._run("SHOW CATALOGS")
+            schema_info.append(f"=== КАТАЛОГИ ===\n{catalogs_result}")
+
+            from urllib.parse import urlparse
+
+            parsed_url = urlparse(state["url"])
+            if len(parsed_url.path.split("/")) >= 3:
+                catalog = parsed_url.path.split("/")[1]
+                schema = parsed_url.path.split("/")[2]
+
+                if catalog and schema:
+                    tables_query = f"SHOW TABLES FROM {catalog}.{schema}"
+                    tables_result = trino_tool._run(tables_query)
+                    schema_info.append(
+                        f"=== ТАБЛИЦЫ В {catalog}.{schema} ===\n{tables_result}"
+                    )
+
+            state["schema_info"] = "\n\n".join(schema_info)
+            self.logger.info("Валидация схемы выполнена успешно")
+
+        except Exception as e:
+            self.logger.error(f"Ошибка при валидации схемы: {e}")
+            state["schema_info"] = f"Ошибка подключения к БД: {str(e)}"
+
+        return state
 
     def _compose_prompt_node(self, state: AgentState) -> AgentState:
         """
@@ -45,7 +91,10 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
         :return: Обновленное состояние
         """
         prompt = self._compose_prompt(
-            ddl=state["ddl"], queries=state["queries"], url=state.get("url")
+            ddl=state["ddl"],
+            queries=state["queries"],
+            url=state.get("url"),
+            schema_info=state.get("schema_info"),
         )
         state["prompt"] = prompt
         return state
@@ -69,7 +118,7 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
             chat_history=state.get("chat_history", []),
         )
 
-        self.logger.info("LLM response received successfully")
+        self.logger.info("Ответ от LLM получен успешно")
         state["response"] = response
 
         self._update_chat_history(state)
@@ -106,7 +155,11 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
         return state
 
     def _compose_prompt(
-        self, ddl: List[DDLStatement], queries: List[Query], url: str = None
+        self,
+        ddl: List[DDLStatement],
+        queries: List[Query],
+        url: str = None,
+        schema_info: str = None,
     ) -> str:
         """
         Составить промпт для анализа схемы.
@@ -114,11 +167,18 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
         :param ddl: DDL утверждения
         :param queries: SQL запросы
         :param url: URL подключения к БД
+        :param schema_info: Информация о реальной схеме из БД
         :return: Сформатированный промпт
         """
-        return BASE_PROMPT_TEMPLATE.format(
+        base_prompt = BASE_PROMPT_TEMPLATE.format(
             url=url or "не указан", ddl=ddl, queries=queries
         )
+
+        if schema_info:
+            base_prompt += f"\n\nРЕАЛЬНАЯ ИНФОРМАЦИЯ О СХЕМЕ БД:\n{schema_info}\n"
+            base_prompt += "Используй эту информацию для более точных рекомендаций."
+
+        return base_prompt
 
     def execute(
         self, initial_state: Dict[str, Any], thread_id: str = None
