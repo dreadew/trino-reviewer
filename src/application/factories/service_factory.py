@@ -1,4 +1,3 @@
-from src.application.agents.schema_reviewer import SchemaReviewerAgent
 from src.application.handlers.llm_message_handler import LLMMessageHandler
 from src.application.services.llm import LLMService
 from src.application.services.review import SchemaReviewService

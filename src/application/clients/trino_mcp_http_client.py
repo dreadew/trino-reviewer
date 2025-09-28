@@ -75,13 +75,13 @@ class TrinoMCPClient:
                     )
 
                 if "application/json" in content_type:
-                    result = await response.json()
+                    _ = await response.json()
                     await self._send_notification("notifications/initialized", {})
                     logger.info(
                         f"MCP session initialized successfully: {self.session_id}"
                     )
                 elif "text/event-stream" in content_type:
-                    result = await self._parse_sse_response(response)
+                    _ = await self._parse_sse_response(response)
                     await self._send_notification("notifications/initialized", {})
                     logger.info(
                         f"MCP session initialized successfully via SSE: {self.session_id}"

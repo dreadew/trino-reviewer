@@ -48,5 +48,9 @@ class Config:
 
     AGENT_TYPE = os.getenv("AGENT_TYPE", "workflow").lower()
 
+    LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY")
+    LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY")
+    LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "http://localhost:3005")
+
 
 config = Config()

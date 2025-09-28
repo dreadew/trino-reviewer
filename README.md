@@ -1,5 +1,7 @@
 # SQL RecSys - AI-powered Database Schema Review Service
 
+[![CI](https://github.com/dreadew/trino-reviewer/actions/workflows/ci.yml/badge.svg)](https://github.com/dreadew/trino-reviewer/actions/workflows/ci.yml)
+
 Сервис для автоматического анализа и оптимизации схем баз данных с помощью LLM моделей через gRPC API.
 
 ## 🤖 Поддерживаемые модели

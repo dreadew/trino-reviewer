@@ -22,10 +22,11 @@ dependencies = [
   "trino (>=0.336.0,<0.337.0)",
   "valkey (>=6.1.1,<7.0.0)",
   "aiohttp (>=3.10.0,<4.0.0)",
+  "langfuse (>=3.5.2,<4.0.0)",
 ]
 description = ""
 license = {text = "MIT"}
-name = "sql-recsys"
+name = "trino-reviewer"
 readme = "README.md"
 requires-python = ">=3.11,<4.0"
 version = "0.1.0"

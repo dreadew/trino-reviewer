@@ -105,7 +105,7 @@ class PerformanceAnalysisTool(BaseTool):
                 PerformanceRecommendation(
                     query_id=metrics.query_id,
                     issue_type="slow_execution",
-                    description=f"Запрос выполняется {metrics.execution_time}мс, что очень медленно",
+                    description="Запрос выполняется {metrics.execution_time}мс, что очень медленно",
                     recommendation="Создать индексы для столбцов в WHERE и JOIN условиях без изменения результата запроса",
                     impact="high",
                 )
@@ -234,20 +234,20 @@ class PerformanceAnalysisTool(BaseTool):
             slow_queries = len([m for m in metrics_list if m.execution_time > 1000])
             frequent_queries = len([m for m in metrics_list if m.run_quantity > 1000])
 
-            result_lines.append(f"\nОБЩАЯ СТАТИСТИКА:")
+            result_lines.append("ОБЩАЯ СТАТИСТИКА:")
             result_lines.append(f"- Всего запросов: {total_queries}")
             result_lines.append(f"- Медленных запросов (>1с): {slow_queries}")
             result_lines.append(f"- Частых запросов (>1000 раз): {frequent_queries}")
 
             if all_recommendations:
                 result_lines.append(
-                    f"\nРЕКОМЕНДАЦИИ ПО ОПТИМИЗАЦИИ СХЕМЫ (БЕЗ ИЗМЕНЕНИЯ ЗАПРОСОВ):"
+                    "РЕКОМЕНДАЦИИ ПО ОПТИМИЗАЦИИ СХЕМЫ (БЕЗ ИЗМЕНЕНИЯ ЗАПРОСОВ):"
                 )
                 high_impact = [r for r in all_recommendations if r.impact == "high"]
                 medium_impact = [r for r in all_recommendations if r.impact == "medium"]
 
                 if high_impact:
-                    result_lines.append(f"\nВЫСОКИЙ ПРИОРИТЕТ ({len(high_impact)}):")
+                    result_lines.append(f"ВЫСОКИЙ ПРИОРИТЕТ ({len(high_impact)}):")
                     for rec in high_impact[:10]:
                         result_lines.append(f"- {rec.query_id}: {rec.description}")
                         result_lines.append(
@@ -255,20 +255,20 @@ class PerformanceAnalysisTool(BaseTool):
                         )
 
                 if medium_impact:
-                    result_lines.append(f"\nСРЕДНИЙ ПРИОРИТЕТ ({len(medium_impact)}):")
+                    result_lines.append(f"СРЕДНИЙ ПРИОРИТЕТ ({len(medium_impact)}):")
                     for rec in medium_impact[:5]:
                         result_lines.append(f"- {rec.query_id}: {rec.description}")
                         result_lines.append(
                             f"  Оптимизация схемы: {rec.recommendation}"
                         )
             else:
-                result_lines.append(f"\nВсе запросы работают оптимально!")
+                result_lines.append("Все запросы работают оптимально!")
 
             result_lines.append(
-                f"\n📋 ПРИНЦИП: Все рекомендации направлены на изменение схемы БД"
+                "📋 ПРИНЦИП: Все рекомендации направлены на изменение схемы БД"
             )
             result_lines.append(
-                f"(индексы, партиции, мат.представления) без изменения SQL запросов."
+                "(индексы, партиции, мат.представления) без изменения SQL запросов."
             )
 
             return "\n".join(result_lines)

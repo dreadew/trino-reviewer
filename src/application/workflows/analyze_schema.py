@@ -16,6 +16,7 @@ from src.core.models.base import DDLStatement, Query
 from src.core.prompts.registry import PROMPTS
 from src.core.types.agent import AgentState
 from src.core.utils.json import safe_extract_json
+from src.infra.langfuse import callback_handler
 
 
 class AnalyzeSchemaWorkflow(BaseWorkflow):
@@ -102,7 +103,6 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
                         schema_info.append(f"=== ОШИБКА MCP ===\n{str(mcp_error)}")
 
             try:
-                loop = asyncio.get_running_loop()
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -368,6 +368,7 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
         """
         config_dict = {
             "configurable": {"thread_id": thread_id or config.DEFAULT_THREAD_ID},
+            "callbacks": [callback_handler],
         }
         final_state = self.graph.invoke(initial_state, config=config_dict)
         return final_state["result"]
