@@ -1,11 +1,11 @@
 import re
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from langchain_core.tools import BaseTool
 
-from src.core.logging import get_logger
-from src.application.models.performance import PerformanceRecommendation, QueryMetrics
 from src.application.inputs.performance import PerformanceAnalysisInput
+from src.application.models.performance import PerformanceRecommendation, QueryMetrics
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 

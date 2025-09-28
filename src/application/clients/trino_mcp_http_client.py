@@ -1,6 +1,8 @@
-from typing import Any, Dict, List
-import aiohttp
+import json
 import uuid
+from typing import Any, Dict, List
+
+import aiohttp
 
 from src.core.logging import get_logger
 
@@ -20,7 +22,7 @@ class TrinoMCPClient:
         self.mcp_server_url = mcp_server_url.rstrip("/")
         self.connection_url = connection_url
         self.session = None
-        self.session_id = str(uuid.uuid4())
+        self.session_id = None  # str(uuid.uuid4())
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -35,10 +37,13 @@ class TrinoMCPClient:
 
     async def _initialize_mcp_session(self):
         """Инициализация MCP сессии."""
+        logger.info(
+            f"Инициализация MCP сессии с начальным session_id: {self.session_id}"
+        )
         try:
             payload = {
                 "jsonrpc": "2.0",
-                "id": "initialize",
+                "id": 1,
                 "method": "initialize",
                 "params": {
                     "protocolVersion": "2024-11-05",
@@ -53,19 +58,55 @@ class TrinoMCPClient:
                 headers={
                     "Content-Type": "application/json",
                     "Accept": "application/json, text/event-stream",
-                    "X-Session-ID": self.session_id,
                 },
             ) as response:
 
                 if response.status != 200:
                     error_text = await response.text()
                     logger.warning(f"MCP initialization failed: {error_text}")
-                else:
+                    return
+
+                content_type = response.headers.get("content-type", "").lower()
+
+                self.session_id = response.headers.get("mcp-session-id")
+                if not self.session_id:
+                    raise RuntimeError(
+                        "MCP сервер не вернул mcp-session-id в заголовке"
+                    )
+
+                if "application/json" in content_type:
                     result = await response.json()
-                    logger.info("MCP session initialized successfully")
+                    await self._send_notification("notifications/initialized", {})
+                    logger.info(
+                        f"MCP session initialized successfully: {self.session_id}"
+                    )
+                elif "text/event-stream" in content_type:
+                    result = await self._parse_sse_response(response)
+                    await self._send_notification("notifications/initialized", {})
+                    logger.info(
+                        f"MCP session initialized successfully via SSE: {self.session_id}"
+                    )
+                else:
+                    raise RuntimeError(
+                        f"Неожиданный content-type от MCP сервера: {content_type}"
+                    )
 
         except Exception as e:
             logger.warning(f"MCP session initialization failed: {e}")
+            raise
+
+    async def _parse_sse_response(self, response) -> Dict[str, Any]:
+        """Парсинг SSE ответа от MCP сервера."""
+        async for line in response.content:
+            line = line.decode("utf-8").strip()
+            if line.startswith("data: "):
+                data = line[6:]
+                if data:
+                    try:
+                        return json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+        raise RuntimeError("Не удалось разобрать SSE ответ от MCP сервера")
 
     async def _make_mcp_request(
         self,
@@ -75,8 +116,14 @@ class TrinoMCPClient:
         request_id: Any = None,
     ) -> Dict[str, Any]:
         """Базовый метод для выполнения MCP запросов."""
-        if not self.session:
-            raise RuntimeError("MCP клиент не инициализирован")
+        if not self.session or not self.session_id:
+            raise RuntimeError(
+                "MCP клиент не инициализирован или session_id отсутствует"
+            )
+
+        logger.info(
+            f"Отправка MCP запроса с session_id: {self.session_id}, method: {method}, tool: {tool_name}"
+        )
 
         try:
             payload = {
@@ -95,8 +142,9 @@ class TrinoMCPClient:
                 headers={
                     "Content-Type": "application/json",
                     "Accept": "application/json, text/event-stream",
-                    "X-Session-ID": self.session_id,
+                    "mcp-session-id": self.session_id,
                 },
+                timeout=aiohttp.ClientTimeout(total=30),
             ) as response:
 
                 if response.status != 200:
@@ -105,7 +153,17 @@ class TrinoMCPClient:
                         f"MCP сервер вернул ошибку {response.status}: {error_text}"
                     )
 
-                result = await response.json()
+                content_type = response.headers.get("content-type", "").lower()
+
+                if "application/json" in content_type:
+                    result = await response.json()
+                elif "text/event-stream" in content_type:
+                    result = await self._parse_sse_response(response)
+                else:
+                    resp_text = await response.text()
+                    raise RuntimeError(
+                        f"Неожиданный content-type от MCP сервера: {content_type}. Ответ: {resp_text}"
+                    )
 
                 if "error" in result:
                     raise Exception(f"Ошибка MCP: {result['error']}")
@@ -228,6 +286,24 @@ class TrinoMCPClient:
                 "validate_first": validate_first,
             },
         )
+
+    async def _send_notification(self, method: str, params: Dict[str, Any]):
+        payload = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+        }
+        async with self.session.post(
+            f"{self.mcp_server_url}/mcp",
+            json=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+                "mcp-session-id": self.session_id,
+            },
+        ) as response:
+            if response.status != 200:
+                logger.warning(f"Notification {method} failed: {await response.text()}")
 
     async def generate_schema_documentation(
         self, catalog: str, schema: str, include_ddl: List[str] = None

@@ -1,7 +1,8 @@
-import json
-from typing import Optional, Any
-import valkey
 import asyncio
+import json
+from typing import Any, Optional
+
+import valkey
 
 from src.core.abstractions.cache import BaseCache
 from src.core.logging import get_logger
@@ -123,6 +124,42 @@ class ValkeyCache(BaseCache):
 
         except Exception as e:
             logger.error(f"Ошибка удаления из кэша [{key}]: {e}")
+            return False
+
+    def get_sync(self, key: str) -> Optional[Any]:
+        """
+        Синхронно получить значение по ключу.
+
+        :param key: Ключ
+        :return: Значение или None
+        """
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(self.get(key))
+            loop.close()
+            return result
+        except Exception as e:
+            logger.error(f"Ошибка синхронного получения из кэша [{key}]: {e}")
+            return None
+
+    def set_sync(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """
+        Синхронно установить значение по ключу.
+
+        :param key: Ключ
+        :param value: Значение
+        :param ttl: Время жизни в секундах
+        :return: True если успешно
+        """
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(self.set(key, value, ttl))
+            loop.close()
+            return result
+        except Exception as e:
+            logger.error(f"Ошибка синхронной установки в кэш [{key}]: {e}")
             return False
 
     async def exists(self, key: str) -> bool:

@@ -203,18 +203,29 @@ class ServiceFactory:
         :return: Агент
         """
         if self._agent is None:
-            self.logger.info("Создание агента для анализа схемы")
+            agent_type = config.AGENT_TYPE
+            self.logger.info(f"Создание агента типа '{agent_type}' для анализа схемы")
 
             chat_model = self._create_chat_model()
 
-            llm_service = self.create_llm_service()
-            workflow = self.create_workflow()
+            if agent_type == "react":
+                from src.application.agents.react_agent import ReactAgent
 
-            self._agent = SchemaReviewerAgent(
-                model=chat_model, llm_service=llm_service, workflow=workflow
-            )
+                self._agent = ReactAgent(model=chat_model)
+                self.logger.info("Создан ReactAgent")
+            elif agent_type == "workflow":
+                from src.application.agents.schema_reviewer import SchemaReviewerAgent
 
-            self.logger.info("Создан SchemaReviewerAgent")
+                llm_service = self.create_llm_service()
+                workflow = self.create_workflow()
+                self._agent = SchemaReviewerAgent(
+                    model=chat_model, llm_service=llm_service, workflow=workflow
+                )
+                self.logger.info("Создан SchemaReviewerAgent (workflow)")
+            else:
+                raise ValueError(
+                    f"Неизвестный тип агента: {agent_type}. Доступные: 'react', 'workflow'"
+                )
 
         return self._agent
 
@@ -247,6 +258,9 @@ class ServiceFactory:
         elif model_type == "openai":
             if not config.OPENAI_API_KEY:
                 errors.append("OPENAI_API_KEY не установлен для OpenAI")
+        elif model_type == "local":
+            if not config.LOCAL_BASE_URL:
+                errors.append("LOCAL_BASE_URL не установлен для локальной модели")
         elif model_type == "gemini":
             if not config.GOOGLE_API_KEY:
                 errors.append("GOOGLE_API_KEY не установлен для Gemini")
@@ -335,25 +349,6 @@ class ServiceFactory:
             "create_prompt_manager устарел, используйте create_prompt_service"
         )
         return self.create_prompt_service()
-
-    def create_trino_mcp_stdio_client(self):
-        """
-        Создать Trino MCP stdio клиент.
-
-        :return: Настроенный TrinoMCPStdioClient
-        """
-        try:
-            from src.infra.config.trino_mcp import TrinoMCPConfig
-
-            config_mcp = TrinoMCPConfig.from_env()
-            client = config_mcp.create_stdio_client()
-
-            self.logger.info("Создан Trino MCP stdio клиент")
-            return client
-
-        except Exception as e:
-            self.logger.error(f"Ошибка при создании Trino MCP stdio клиента: {e}")
-            raise
 
 
 service_factory = ServiceFactory()

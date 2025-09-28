@@ -2,7 +2,8 @@
 Единый сервис для управления промптами с Valkey кэшированием.
 """
 
-from typing import Optional, List
+from typing import List, Optional
+
 from src.core.abstractions.cache import BaseCache
 from src.core.logging import get_logger
 from src.core.prompts.registry import PROMPTS

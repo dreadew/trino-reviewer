@@ -5,6 +5,9 @@ from langchain.schema import HumanMessage, SystemMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
+from src.application.tools.data_lineage_tool import create_data_lineage_tool
+from src.application.tools.performance_analyzer import create_performance_analysis_tool
+from src.application.tools.schema_diff_tool import create_schema_diff_tool
 from src.core.abstractions.message_handler import BaseMessageHandler
 from src.core.abstractions.workflow import BaseWorkflow
 from src.core.config import config
@@ -13,10 +16,6 @@ from src.core.models.base import DDLStatement, Query
 from src.core.prompts.registry import PROMPTS
 from src.core.types.agent import AgentState
 from src.core.utils.json import safe_extract_json
-from src.core.factories.service_factory import ServiceFactory
-from src.application.tools.performance_analyzer import create_performance_analysis_tool
-from src.application.tools.schema_diff_tool import create_schema_diff_tool
-from src.application.tools.data_lineage_tool import create_data_lineage_tool
 
 
 class AnalyzeSchemaWorkflow(BaseWorkflow):
@@ -63,6 +62,7 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
 
         try:
             import asyncio
+
             from src.application.clients.trino_mcp_http_client import TrinoMCPClient
 
             schema_info = []
@@ -256,12 +256,22 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
 
     def _parse_response_node(self, state: AgentState) -> AgentState:
         try:
-            json_response = safe_extract_json(state["response"])
-            parsed_result = json.loads(json_response)
+            self.logger.info(
+                f"Парсинг ответа от LLM, длина: {len(state['response'])} символов"
+            )
+            self.logger.debug(f"Ответ от LLM: {state['response'][:500]}...")
 
+            json_response = safe_extract_json(state["response"])
+            self.logger.info(f"Извлечен JSON, длина: {len(json_response)} символов")
+
+            parsed_result = json.loads(json_response)
             state["result"] = parsed_result
-        except (json.JSONDecodeError, TypeError) as e:
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
             self.logger.error(f"Ошибка при парсинге JSON: {e}")
+            self.logger.error(
+                f"Неудачный текст для парсинга: {state['response'][:1000]}..."
+            )
+            raise
         return state
 
     def _validate_changes_node(self, state: AgentState) -> AgentState:

@@ -1,5 +1,9 @@
-import grpc
+import hashlib
+import json
 from typing import Any, Dict
+
+import grpc
+
 from src.core.abstractions.review_service import BaseReviewService
 from src.core.logging import get_logger
 from src.generated.schema_review_pb2 import (
@@ -9,6 +13,7 @@ from src.generated.schema_review_pb2 import (
     ReviewSchemaResponse,
 )
 from src.generated.schema_review_pb2_grpc import SchemaReviewServiceServicer
+from src.infra.cache.valkey_cache import ValkeyCache
 
 
 class SchemaReviewGRPCService(SchemaReviewServiceServicer):
@@ -22,6 +27,7 @@ class SchemaReviewGRPCService(SchemaReviewServiceServicer):
         """
         self.review_service = review_service
         self.logger = get_logger(__name__)
+        self.cache = ValkeyCache()
 
     def ReviewSchema(self, request, context):
         """
@@ -36,7 +42,18 @@ class SchemaReviewGRPCService(SchemaReviewServiceServicer):
 
             payload = self._convert_grpc_request_to_payload(request)
 
+            # cache_key = self._generate_cache_key(payload)
+
+            # cached_result = self.cache.get_sync(cache_key)
+            # if cached_result is not None:
+            #    self.logger.info(
+            #        "Результат найден в кэше, возвращаем кэшированный результат"
+            #    )
+            #    return self._convert_result_to_grpc_response(cached_result)
+
             result = self.review_service.review(payload)
+
+            # self.cache.set_sync(cache_key, result, ttl=3600)
 
             response = self._convert_result_to_grpc_response(result)
 
@@ -51,6 +68,22 @@ class SchemaReviewGRPCService(SchemaReviewServiceServicer):
             return ReviewSchemaResponse(
                 success=False, message="Internal server error", error=str(e)
             )
+
+    def _generate_cache_key(self, payload: Dict[str, Any]) -> str:
+        """
+        Генерация ключа кэша на основе payload запроса.
+
+        :param payload: Payload запроса
+        :return: Ключ кэша
+        """
+        cache_payload = {
+            "url": payload["url"],
+            "ddl": payload["ddl"],
+            "queries": payload["queries"],
+        }
+        payload_str = json.dumps(cache_payload, sort_keys=True)
+        cache_key = hashlib.sha256(payload_str.encode()).hexdigest()
+        return f"schema_review:{cache_key}"
 
     def _convert_grpc_request_to_payload(self, request) -> Dict[str, Any]:
         """

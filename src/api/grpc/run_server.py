@@ -3,8 +3,8 @@ import sys
 from typing import Optional
 
 from src.api.grpc.service import GRPCServer
+from src.application.factories.service_factory import service_factory
 from src.core.config import config
-from src.core.factories.service_factory import service_factory
 from src.core.logging import get_logger
 
 

@@ -18,11 +18,11 @@ class Config:
     MODEL_TYPE = os.getenv("MODEL_TYPE", "giga").lower()
     MODEL_NAME = os.getenv("MODEL_NAME", "GigaChat")
     API_KEY = os.getenv("API_KEY")
-    MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2048"))
+    MAX_TOKENS = int(os.getenv("MAX_TOKENS", "8192"))
 
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY")
     OPENAI_MODEL_NAME = os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini")
-    OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+    OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1")
 
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("API_KEY")
     GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
@@ -45,6 +45,8 @@ class Config:
     PROMPT_CACHE_TTL = int(os.getenv("PROMPT_CACHE_TTL", "3600"))
 
     TRINO_MCP_SERVER_URL = os.getenv("TRINO_MCP_SERVER_URL", "http://localhost:8000")
+
+    AGENT_TYPE = os.getenv("AGENT_TYPE", "workflow").lower()
 
 
 config = Config()
