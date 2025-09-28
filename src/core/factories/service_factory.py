@@ -265,5 +265,75 @@ class ServiceFactory:
         self.logger.info("Конфигурация валидна")
         return True
 
+    def create_cache_service(self):
+        """
+        Создать сервис кэширования Valkey.
+
+        :return: Экземпляр ValkeyCache
+        """
+        try:
+            from src.infrastructure.cache.valkey_cache import ValkeyCache
+
+            cache = ValkeyCache(
+                host=(
+                    config.VALKEY_HOST
+                    if hasattr(config, "VALKEY_HOST")
+                    else "localhost"
+                ),
+                port=config.VALKEY_PORT if hasattr(config, "VALKEY_PORT") else 6379,
+                db=config.VALKEY_DB if hasattr(config, "VALKEY_DB") else 0,
+                password=(
+                    config.VALKEY_PASSWORD
+                    if hasattr(config, "VALKEY_PASSWORD")
+                    else None
+                ),
+            )
+
+            self.logger.info("Создан сервис Valkey кэша")
+            return cache
+
+        except Exception as e:
+            self.logger.error(f"Ошибка при создании Valkey кэша: {e}")
+            raise
+
+    def create_prompt_service(self):
+        """
+        Создать сервис для управления промптами.
+
+        :return: Экземпляр PromptService
+        """
+        try:
+            from src.application.services.prompt_service import PromptService
+
+            cache = self.create_cache_service()
+            prompt_service = PromptService(
+                cache=cache,
+                ttl=(
+                    config.PROMPT_CACHE_TTL
+                    if hasattr(config, "PROMPT_CACHE_TTL")
+                    else 3600
+                ),
+            )
+
+            self.logger.info("Создан сервис промптов с Valkey кэшированием")
+            return prompt_service
+
+        except Exception as e:
+            self.logger.error(f"Ошибка при создании сервиса промптов: {e}")
+            raise
+
+    def create_prompt_manager(self):
+        """
+        Создать менеджер промптов (алиас для обратной совместимости).
+
+        Теперь возвращает PromptService для устранения дублирования.
+
+        :return: Экземпляр PromptService
+        """
+        self.logger.warning(
+            "create_prompt_manager устарел, используйте create_prompt_service"
+        )
+        return self.create_prompt_service()
+
 
 service_factory = ServiceFactory()

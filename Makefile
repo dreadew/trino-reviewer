@@ -1,4 +1,4 @@
-.PHONY: help lint format test test-unit test-integration check-all gen-proto run-server
+.PHONY: help lint format test test-unit test-integration check-all gen-proto run-server prompt-init prompt-list prompt-clear
 
 help:
 	@echo 'Usage: make [target]'
@@ -10,10 +10,10 @@ gen-proto:
 	@mkdir -p src/generated
 	@touch src/generated/__init__.py
 	poetry run python -m grpc_tools.protoc \
-		--proto_path=proto \
-		--python_out=src/generated \
-		--grpc_python_out=src/generated \
-		proto/schema_review.proto
+		-I proto \
+		--python_out=. \
+		--grpc_python_out=. \
+		proto/src/generated/schema_review.proto
 
 run-server:
 	poetry run python -m src.api.grpc.run_server
@@ -44,3 +44,12 @@ dev-setup: install
 
 ci: check-all
 	@echo "All CI checks passed!"
+
+prompt-init:
+	poetry run python -c "import asyncio; from src.utils.prompt_init import init_prompts_in_valkey; asyncio.run(init_prompts_in_valkey())"
+
+prompt-list:
+	poetry run python -c "import asyncio; from src.utils.prompt_init import list_prompts_in_valkey; asyncio.run(list_prompts_in_valkey())"
+
+prompt-clear:
+	poetry run python -c "import asyncio; from src.utils.prompt_init import clear_prompts_in_valkey; asyncio.run(clear_prompts_in_valkey())"

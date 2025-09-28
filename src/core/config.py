@@ -37,5 +37,12 @@ class Config:
 
     DEFAULT_THREAD_ID = os.getenv("DEFAULT_THREAD_ID", "default")
 
+    VALKEY_HOST = os.getenv("VALKEY_HOST", "localhost")
+    VALKEY_PORT = int(os.getenv("VALKEY_PORT", "6379"))
+    VALKEY_DB = int(os.getenv("VALKEY_DB", "0"))
+    VALKEY_PASSWORD = os.getenv("VALKEY_PASSWORD")
+
+    PROMPT_CACHE_TTL = int(os.getenv("PROMPT_CACHE_TTL", "3600"))
+
 
 config = Config()
