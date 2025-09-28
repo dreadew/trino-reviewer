@@ -4,20 +4,7 @@ from langchain.schema import AIMessage, HumanMessage, SystemMessage
 
 from src.core.abstractions.chat_model import BaseChatMessage, ChatModel
 from src.core.logging import get_logger
-
-
-class LangChainMessage(BaseChatMessage):
-    """Сообщение для LangChain модели."""
-
-    def __init__(self, content: str, role: str = "human"):
-        """
-        Инициализация сообщения.
-
-        :param content: Содержимое сообщения
-        :param role: Роль сообщения (human, system, assistant)
-        """
-        super().__init__(content)
-        self.role = role
+from src.infra.messages.langchain import LangChainMessage
 
 
 class LangChainChatModelAdapter(ChatModel):

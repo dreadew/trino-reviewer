@@ -1,17 +1,8 @@
-from dataclasses import dataclass
 from typing import Any, Dict, List
 
 from src.core.logging import get_logger
 from src.core.models.base import DDLStatement, Query
-
-
-@dataclass
-class ValidationResult:
-    """Результат валидации."""
-
-    is_valid: bool
-    errors: List[str]
-    warnings: List[str] = None
+from src.core.models.validation import ValidationResult
 
 
 class SchemaDataValidator:

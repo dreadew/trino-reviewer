@@ -11,7 +11,7 @@ from src.core.abstractions.review_service import BaseReviewService
 from src.core.abstractions.workflow import BaseWorkflow
 from src.core.config import config
 from src.core.logging import get_logger
-from src.infrastructure.adapters.langchain_adapter import LangChainChatModelAdapter
+from src.infra.adapters.langchain_adapter import LangChainChatModelAdapter
 
 
 class ServiceFactory:
@@ -272,7 +272,7 @@ class ServiceFactory:
         :return: Экземпляр ValkeyCache
         """
         try:
-            from src.infrastructure.cache.valkey_cache import ValkeyCache
+            from src.infra.cache.valkey_cache import ValkeyCache
 
             cache = ValkeyCache(
                 host=(
@@ -334,6 +334,30 @@ class ServiceFactory:
             "create_prompt_manager устарел, используйте create_prompt_service"
         )
         return self.create_prompt_service()
+
+    def create_trino_mcp_tool(self, connection_url: str = None):
+        """
+        Создать Trino MCP tool.
+
+        :param connection_url: URL подключения к Trino (по умолчанию из конфига)
+        :return: Настроенный TrinoMCPTool
+        """
+        try:
+            from src.application.tools.trino_mcp_tool import create_trino_mcp_tool
+
+            connection_url = connection_url
+
+            tool = create_trino_mcp_tool(
+                mcp_server_url=config.TRINO_MCP_SERVER_URL,
+                connection_url=connection_url,
+            )
+
+            self.logger.info("Создан Trino MCP tool")
+            return tool
+
+        except Exception as e:
+            self.logger.error(f"Ошибка при создании Trino MCP tool: {e}")
+            raise
 
 
 service_factory = ServiceFactory()

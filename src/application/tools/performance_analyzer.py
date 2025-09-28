@@ -1,44 +1,13 @@
 import re
 from typing import List, Dict, Any
-from dataclasses import dataclass
 
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, Field
 
 from src.core.logging import get_logger
+from src.application.models.performance import PerformanceRecommendation, QueryMetrics
+from src.application.inputs.performance import PerformanceAnalysisInput
 
 logger = get_logger(__name__)
-
-
-@dataclass
-class QueryMetrics:
-    """Метрики производительности запроса."""
-
-    query_id: str
-    query: str
-    execution_time: float
-    run_quantity: int
-    total_time: float
-    priority_score: float
-
-
-@dataclass
-class PerformanceRecommendation:
-    """Рекомендация по оптимизации."""
-
-    query_id: str
-    issue_type: str
-    description: str
-    recommendation: str
-    impact: str
-
-
-class PerformanceAnalysisInput(BaseModel):
-    """Входные параметры для анализа производительности."""
-
-    queries: List[Dict[str, Any]] = Field(
-        description="SQL запросы с метриками производительности"
-    )
 
 
 class PerformanceAnalysisTool(BaseTool):

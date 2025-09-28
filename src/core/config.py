@@ -25,7 +25,7 @@ class Config:
     OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("API_KEY")
-    GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash")
+    GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
 
     TEMPERATURE = float(os.getenv("TEMPERATURE", "0.1"))
 
@@ -43,6 +43,9 @@ class Config:
     VALKEY_PASSWORD = os.getenv("VALKEY_PASSWORD")
 
     PROMPT_CACHE_TTL = int(os.getenv("PROMPT_CACHE_TTL", "3600"))
+
+    # Trino MCP сервер
+    TRINO_MCP_SERVER_URL = os.getenv("TRINO_MCP_SERVER_URL", "http://localhost:8000")
 
 
 config = Config()

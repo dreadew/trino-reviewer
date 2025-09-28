@@ -13,7 +13,7 @@ from src.core.models.base import DDLStatement, Query
 from src.core.prompts.registry import PROMPTS
 from src.core.types.agent import AgentState
 from src.core.utils.json import safe_extract_json
-from src.application.tools.trino_tool import create_trino_tool
+from src.application.tools.trino_mcp_tool import create_trino_mcp_tool
 from src.application.tools.performance_analyzer import create_performance_analysis_tool
 from src.application.tools.schema_diff_tool import create_schema_diff_tool
 from src.application.tools.data_lineage_tool import create_data_lineage_tool
@@ -61,7 +61,11 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
             return state
 
         try:
-            trino_tool = create_trino_tool(state["url"])
+            from src.core.config import config
+
+            trino_tool = create_trino_mcp_tool(
+                mcp_server_url=config.TRINO_MCP_SERVER_URL, connection_url=state["url"]
+            )
 
             schema_info = []
 
