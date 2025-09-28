@@ -12,7 +12,7 @@ services:
       - VALKEY_PORT=6379
       - VALKEY_DB=0
     ports:
-      - '8080:8080'
+      - '50051:50051'
     depends_on:
       - valkey
     command: poetry run python -m src.api.grpc.run_server

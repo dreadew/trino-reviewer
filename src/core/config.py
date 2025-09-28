@@ -44,7 +44,6 @@ class Config:
 
     PROMPT_CACHE_TTL = int(os.getenv("PROMPT_CACHE_TTL", "3600"))
 
-    # Trino MCP сервер
     TRINO_MCP_SERVER_URL = os.getenv("TRINO_MCP_SERVER_URL", "http://localhost:8000")
 
 

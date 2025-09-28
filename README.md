@@ -33,7 +33,7 @@ cp .env.example .env
 ```bash
 MODEL_TYPE=giga
 API_KEY=your-gigachat-api-key
-MODEL_NAME=GigaChat
+MODEL_NAME=GigaChat-2
 ```
 
 **Для OpenAI:**

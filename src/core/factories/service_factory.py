@@ -2,7 +2,6 @@ from src.application.agents.schema_reviewer import SchemaReviewerAgent
 from src.application.handlers.llm_message_handler import LLMMessageHandler
 from src.application.services.llm import LLMService
 from src.application.services.review import SchemaReviewService
-from src.application.workflows.analyze_schema import AnalyzeSchemaWorkflow
 from src.core.abstractions.agent import BaseAgent
 from src.core.abstractions.chat_model import ChatModel
 from src.core.abstractions.llm import BaseLLMService
@@ -189,6 +188,8 @@ class ServiceFactory:
         :return: Workflow
         """
         if self._workflow is None:
+            from src.application.workflows.analyze_schema import AnalyzeSchemaWorkflow
+
             self.logger.info("Создание workflow для анализа схемы")
             message_handler = self.create_message_handler()
             self._workflow = AnalyzeSchemaWorkflow(message_handler=message_handler)
@@ -335,28 +336,23 @@ class ServiceFactory:
         )
         return self.create_prompt_service()
 
-    def create_trino_mcp_tool(self, connection_url: str = None):
+    def create_trino_mcp_stdio_client(self):
         """
-        Создать Trino MCP tool.
+        Создать Trino MCP stdio клиент.
 
-        :param connection_url: URL подключения к Trino (по умолчанию из конфига)
-        :return: Настроенный TrinoMCPTool
+        :return: Настроенный TrinoMCPStdioClient
         """
         try:
-            from src.application.tools.trino_mcp_tool import create_trino_mcp_tool
+            from src.infra.config.trino_mcp import TrinoMCPConfig
 
-            connection_url = connection_url
+            config_mcp = TrinoMCPConfig.from_env()
+            client = config_mcp.create_stdio_client()
 
-            tool = create_trino_mcp_tool(
-                mcp_server_url=config.TRINO_MCP_SERVER_URL,
-                connection_url=connection_url,
-            )
-
-            self.logger.info("Создан Trino MCP tool")
-            return tool
+            self.logger.info("Создан Trino MCP stdio клиент")
+            return client
 
         except Exception as e:
-            self.logger.error(f"Ошибка при создании Trino MCP tool: {e}")
+            self.logger.error(f"Ошибка при создании Trino MCP stdio клиента: {e}")
             raise
 
 

@@ -13,7 +13,7 @@ from src.core.models.base import DDLStatement, Query
 from src.core.prompts.registry import PROMPTS
 from src.core.types.agent import AgentState
 from src.core.utils.json import safe_extract_json
-from src.application.tools.trino_mcp_tool import create_trino_mcp_tool
+from src.core.factories.service_factory import ServiceFactory
 from src.application.tools.performance_analyzer import create_performance_analysis_tool
 from src.application.tools.schema_diff_tool import create_schema_diff_tool
 from src.application.tools.data_lineage_tool import create_data_lineage_tool
@@ -24,8 +24,9 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
 
     def __init__(self, message_handler: BaseMessageHandler):
         self.message_handler = message_handler
-        self.graph = self._build_graph()
         self.logger = get_logger(__name__)
+
+        self.graph = self._build_graph()
 
     def _build_graph(self):
         graph = StateGraph(AgentState)
@@ -50,7 +51,7 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
 
     def _validate_schema_node(self, state: AgentState) -> AgentState:
         """
-        Валидация схемы БД с помощью Trino tool.
+        Валидация схемы БД с помощью Trino MCP HTTP клиента.
 
         :param state: Состояние агента
         :return: Обновленное состояние с информацией о схеме
@@ -61,37 +62,68 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
             return state
 
         try:
-            from src.core.config import config
-
-            trino_tool = create_trino_mcp_tool(
-                mcp_server_url=config.TRINO_MCP_SERVER_URL, connection_url=state["url"]
-            )
+            import asyncio
+            from src.application.clients.trino_mcp_http_client import TrinoMCPClient
 
             schema_info = []
 
-            catalogs_result = trino_tool._run("SHOW CATALOGS")
-            schema_info.append(f"=== КАТАЛОГИ ===\n{catalogs_result}")
-
-            from urllib.parse import urlparse
-
-            parsed_url = urlparse(state["url"])
-            if len(parsed_url.path.split("/")) >= 3:
-                catalog = parsed_url.path.split("/")[1]
-                schema = parsed_url.path.split("/")[2]
-
-                if catalog and schema:
-                    tables_query = f"SHOW TABLES FROM {catalog}.{schema}"
-                    tables_result = trino_tool._run(tables_query)
-                    schema_info.append(
-                        f"=== ТАБЛИЦЫ В {catalog}.{schema} ===\n{tables_result}"
+            async def get_schema_info():
+                async with TrinoMCPClient(
+                    mcp_server_url=config.TRINO_MCP_SERVER_URL,
+                    connection_url=state["url"],
+                ) as client:
+                    self.logger.info(
+                        f"Подключение к Trino через MCP HTTP для URL: {state['url']}"
                     )
 
-            state["schema_info"] = "\n\n".join(schema_info)
-            self.logger.info("Валидация схемы выполнена успешно")
+                    try:
+                        status_result = await client.get_connection_status()
+                        schema_info.append(
+                            f"=== СТАТУС ПОДКЛЮЧЕНИЯ ===\n{status_result}"
+                        )
+                        self.logger.info("Получен статус подключения")
+
+                        catalogs_result = await client.list_catalogs()
+                        schema_info.append(
+                            f"=== ДОСТУПНЫЕ КАТАЛОГИ ===\n{catalogs_result}"
+                        )
+                        self.logger.info("Получен список каталогов")
+
+                        test_query_result = await client.execute_query(
+                            "SELECT 1 as connection_test"
+                        )
+                        schema_info.append(
+                            f"=== ТЕСТ ПОДКЛЮЧЕНИЯ ===\nРезультат: {test_query_result}"
+                        )
+                        self.logger.info("Тест подключения к Trino выполнен успешно")
+
+                    except Exception as mcp_error:
+                        self.logger.error(f"Ошибка при работе с MCP: {mcp_error}")
+                        schema_info.append(f"=== ОШИБКА MCP ===\n{str(mcp_error)}")
+
+            try:
+                loop = asyncio.get_running_loop()
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, get_schema_info())
+                    future.result(timeout=30.0)
+
+            except RuntimeError:
+                asyncio.run(get_schema_info())
+
+            if schema_info:
+                state["schema_info"] = "\n\n".join(schema_info)
+                self.logger.info("Валидация схемы выполнена успешно")
+            else:
+                state["schema_info"] = (
+                    "MCP HTTP клиент создан, но не удалось получить информацию о схеме"
+                )
+                self.logger.warning("Валидация схемы завершена без получения данных")
 
         except Exception as e:
             self.logger.error(f"Ошибка при валидации схемы: {e}")
-            state["schema_info"] = f"Ошибка подключения к БД: {str(e)}"
+            state["schema_info"] = f"Ошибка подключения к БД через MCP HTTP: {str(e)}"
 
         return state
 
@@ -287,8 +319,17 @@ class AnalyzeSchemaWorkflow(BaseWorkflow):
         :param data_lineage: Результаты анализа зависимостей данных
         :return: Сформатированный промпт
         """
-        base_prompt = PROMPTS["base_template"].format(
-            url=url or "не указан", ddl=ddl, queries=queries
+        ddl_statements = "\n".join([stmt.statement for stmt in ddl])
+
+        queries_text = "\n".join(
+            [
+                f"Query ID: {query.query_id}\nQuery: {query.query}\nExecution Time: {query.executiontime}ms\nRun Quantity: {query.runquantity}"
+                for query in queries
+            ]
+        )
+
+        base_prompt = PROMPTS["trino_schema_analysis"].format(
+            ddl_statements=ddl_statements, queries=queries_text
         )
 
         if schema_info:

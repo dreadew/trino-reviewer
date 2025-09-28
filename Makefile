@@ -44,12 +44,3 @@ dev-setup: install
 
 ci: check-all
 	@echo "All CI checks passed!"
-
-prompt-init:
-	poetry run python -c "import asyncio; from src.utils.prompt_init import init_prompts_in_valkey; asyncio.run(init_prompts_in_valkey())"
-
-prompt-list:
-	poetry run python -c "import asyncio; from src.utils.prompt_init import list_prompts_in_valkey; asyncio.run(list_prompts_in_valkey())"
-
-prompt-clear:
-	poetry run python -c "import asyncio; from src.utils.prompt_init import clear_prompts_in_valkey; asyncio.run(clear_prompts_in_valkey())"
